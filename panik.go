@@ -1,10 +1,12 @@
 package panik
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 )
@@ -63,10 +65,17 @@ func Handle(f func(r interface{})) {
 	f(r)
 }
 
-// Consume recovers from any panic and writes it to stderr, the same way that Go itself does
-// when a goroutine terminates due to not having recovered from a panic.
-func Consume() {
-	ConsumeTo(os.Stderr)
+// PrintStackTrace recovers from any panic and writes it to stderr, the same way that Go itself does when a
+// goroutine terminates due to not having recovered from a panic, with excessive descends into panic.go and panik.go removed.
+func PrintStackTrace() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	os.Stderr.Write([]byte(fmt.Sprintf("panic: %v\n\n%s", r, sb.String())))
 }
 
 // ConsumeToStdLog recovers from any panic and writes it to log.Writer().
