@@ -8,10 +8,7 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	if err, isError := e.value.(error); isError && err != nil {
-		return "panic value: " + err.Error()
-	}
-	return fmt.Sprintf("panic value: %v", e)
+	return fmt.Sprintf("%v", e.value)
 }
 
 func (e *Error) String() string {
@@ -29,4 +26,20 @@ func (e *Error) Unwrap() error {
 // Value returns the value wrapped by this *Error, which has been provided to panic().
 func (e *Error) Value() interface{} {
 	return e.value
+}
+
+func makeError(format string, panicValue interface{}, args ...interface{}) error {
+	var panicError error
+	if err, isError := panicValue.(error); isError {
+		panicError = err
+	} else {
+		panicError = &Error{value: panicValue}
+	}
+	l := len(args)
+	for i := 0; i < l; i++ {
+		if _, isCause := args[i].(Cause); isCause {
+			args[i] = panicError
+		}
+	}
+	return fmt.Errorf(format, args...)
 }

@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"sync"
 )
+
+type Cause struct{}
 
 var describedErrors *sync.Map = &sync.Map{}
 
@@ -15,96 +18,64 @@ func Describe(format string, args ...interface{}) {
 	if r == nil {
 		return
 	}
-	_, isAlreadyDescribed := describedErrors.Load(r)
-	if isAlreadyDescribed {
+	if _, isAlreadyDescribed := describedErrors.Load(r); isAlreadyDescribed {
 		panic(r)
 	}
-	var panicError error
-	if err, isError := r.(error); isError {
-		panicError = err
-	} else {
-		panicError = &Error{value: r}
-	}
-	args = append(args, panicError)
-	panicError = fmt.Errorf(format+": %w", args...)
+	panicError := makeError(format, r, args...)
 	describedErrors.Store(panicError, nil)
 	panic(panicError)
 }
 
-func Consolidate(format string, args ...interface{}) {
-	defer ConsolidateAsIs()
-	Describe(format, args)
-}
-
-func ConsolidateAsIs() {
+func Described(format string, args ...interface{}) {
 	r := recover()
-	describedErrors.Delete(r)
 	if r == nil {
 		return
 	}
-	panic(r)
+	if _, isAlreadyDescribed := describedErrors.Load(r); isAlreadyDescribed {
+		describedErrors.Delete(r)
+		panic(r)
+	}
+	panic(makeError(format, r, args...))
 }
 
-func ToNewError(errPtr *error, format string, args ...interface{}) {
-	if errPtr == nil {
-		log.Printf("errPtr was nil")
-		return
-	}
-	if *errPtr != nil {
+func ToError(errPtr *error, format string, args ...interface{}) {
+	if errPtr != nil && *errPtr != nil {
 		return
 	}
 	r := recover()
 	if r == nil {
 		return
 	}
-	var panicError error
-	if err, isError := r.(error); isError {
-		panicError = err
-	} else {
-		panicError = &Error{value: r}
-	}
-	args = append(args, panicError)
-	*errPtr = fmt.Errorf(format, args...)
-}
-
-func AsError(errPtr *error) {
-	if errPtr == nil {
-		log.Printf("errPtr was nil")
-		return
-	}
-	if *errPtr != nil {
-		return
-	}
-	r := recover()
-	if r == nil {
-		return
-	}
-	if err, isError := r.(error); isError {
+	err := makeError(format, r, args)
+	if errPtr != nil {
 		*errPtr = err
 	} else {
-		*errPtr = fmt.Errorf("%v", r)
+		panic(fmt.Errorf("errPtr was nil. error was: %w", err))
 	}
 }
 
-// TODO: Provide clean stacktrace
 func Handle(f func(r interface{})) {
 	r := recover()
+	describedErrors.Delete(r)
 	if r == nil {
 		return
 	}
-	describedErrors.Delete(r)
 	f(r)
 }
 
-func ConsumeToStandardLogger() {
-	r := recover()
-	if r == nil {
-		return
-	}
-	log.Printf("Ignoring panic: %v", r)
+// Consume recovers from any panic and writes it to stderr, the same way that Go itself does
+// when a goroutine terminates due to not having recovered from a panic.
+func Consume() {
+	ConsumeTo(os.Stderr)
 }
 
-func ConsumeToWriter(w io.Writer) {
+// ConsumeToStdLog recovers from any panic and writes it to log.Writer().
+func ConsumeToStdLog() {
+	ConsumeTo(log.Writer())
+}
+
+// ConsumeTo recovers from any panic and writes it to the provided writer.
+func ConsumeTo(w io.Writer) {
 	r := recover()
 	if r == nil {
 		return
@@ -113,7 +84,7 @@ func ConsumeToWriter(w io.Writer) {
 	if message == "" {
 		return
 	}
-	if strings.HasSuffix(message, "\n") {
+	if !strings.HasSuffix(message, "\n") {
 		message += "\n"
 	}
 	io.WriteString(w, message)
