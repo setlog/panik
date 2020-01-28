@@ -2,6 +2,8 @@ package panik
 
 import "fmt"
 
+import "strings"
+
 // Error wraps non-error values provided to panic()
 type Error struct {
 	value interface{}
@@ -29,17 +31,36 @@ func (e *Error) Value() interface{} {
 }
 
 func makeError(format string, panicValue interface{}, args ...interface{}) error {
-	var panicError error
-	if err, isError := panicValue.(error); isError {
-		panicError = err
-	} else {
-		panicError = &Error{value: panicValue}
-	}
+	panicError := makeCause(panicValue)
 	l := len(args)
 	for i := 0; i < l; i++ {
 		if _, isCause := args[i].(Cause); isCause {
 			args[i] = panicError
 		}
 	}
+	if !hasErrorFormattingDirective(format) {
+		format += ": %w"
+		args = append(args, panicError)
+	}
 	return fmt.Errorf(format, args...)
+}
+
+func makeCause(panicValue interface{}) error {
+	if err, isError := panicValue.(error); isError {
+		return err
+	}
+	return &Error{value: panicValue}
+}
+
+func hasErrorFormattingDirective(format string) bool {
+	for {
+		i := strings.Index(format, "%w")
+		if i == -1 {
+			return false
+		}
+		if i == 0 || format[i-1] != '%' {
+			return true
+		}
+		format = format[i+2:]
+	}
 }
