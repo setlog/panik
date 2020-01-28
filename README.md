@@ -29,13 +29,37 @@ func getSomething() (interface{}, error) {
 The solution presented by this module:
 
 ```go
-func getSomething() (interface{}, retErr error) {
+func getSomething() (obj interface{}, retErr error) {
     defer panik.ToError(&retErr, "could not get something")
     return f3(f2(f1)), nil // Here, f3, f2 and f1 panic on error
 }
 ```
 
 ## More
+
+```go
+func getSomething(somethingId int) (obj interface{}, retErr error) {
+    defer panik.ToCustomError(&retErr, newIdError, somethingId)
+    return f(somethingId + 42), nil
+}
+
+func newIdError(cause error, args ...interface{}) error {
+    return &IdError{cause: cause, id: args[0].(int)}
+}
+
+type IdError struct {
+    cause error
+    id    int
+}
+
+func (e *IdError) Error() string {
+    return fmt.Sprintf("could not find id %d: %v", e.id, e.cause)
+}
+
+func (e *IdError) Unwrap() error {
+    return e.cause
+}
+```
 
 ```go
 func getSomething() interface{} { // instead of f3(f2(f1))
@@ -45,13 +69,6 @@ func getSomething() interface{} { // instead of f3(f2(f1))
     b := f2(a)
     defer panik.Describe("f3(%v) failed", b)
     return f3(b)
-}
-```
-
-```go
-func iAmAGoroutine(somethingChannel chan interface{}) interface{} {
-    defer panik.WriteTrace(os.Stderr)
-    somethingChannel<-getSomething()
 }
 ```
 
