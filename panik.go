@@ -9,7 +9,8 @@ import (
 	"sync"
 )
 
-// Cause is an empty struct which signals that its position in a variadic argument list matches with a "%w" error-formatting directive.
+// Cause is an empty struct which signals that its position in a variadic argument list matches with a "%w" error-formatting directive
+// and that an error-value should take its place.
 type Cause struct{}
 
 var describedErrors *sync.Map = &sync.Map{}
@@ -81,19 +82,19 @@ func OnError(err error, format string, args ...interface{}) {
 	}
 }
 
-// Panic panics with a value of type *panik.KnownCause which wraps an error with the provided formatted message.
+// Panic panics with a value of type *panik.knownCause which wraps an error with the provided formatted message.
 func Panic(format string, args ...interface{}) {
 	panic(&knownCause{cause: fmt.Errorf(format, args...)})
 }
 
-// IsKnownCause returns true when err or one of its wrapped errors is of type *panik.KnownCause, i.e. err came from a panic
+// IsKnownCause returns true when err or one of its wrapped errors is of type *panik.knownCause, i.e. err came from a panic
 // triggered using panik, or from To(Custom)Error (and not from somewhere else).
 func IsKnownCause(err error) bool {
 	var known *knownCause
 	return errors.As(err, &known)
 }
 
-// Handle handles a panic if and only if the recovered value is an error err which is or wraps an error of type *panik.KnownCause,
+// Handle handles a panic if and only if the recovered value is an error err which is or wraps an error of type *panik.knownCause,
 // calling your provided function with the panic value type-asserted to an error value.
 func Handle(handler func(r error)) {
 	r := recover()

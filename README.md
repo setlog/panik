@@ -71,7 +71,7 @@ func iAmAGoroutine(everythingChannel chan interface{}) interface{} {
 func iAmAnotherGoroutine() {
     defer panik.WriteTrace(os.Stderr)
     defer panik.Handle(func(r error) {
-        // never reached: plain panic() is not an error which is or wraps a *panik.KnownCause.
+        // never reached: plain panic() is not an error which is or wraps a *panik.knownCause.
         // Only panik.Panic() and panik.OnError() panic with such a value.
     })
     panic("very critical problem. DO NOT RECOVER")
