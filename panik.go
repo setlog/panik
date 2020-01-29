@@ -81,19 +81,19 @@ func OnError(err error, format string, args ...interface{}) {
 	}
 }
 
-// Panic panics with a value of type *panik.Known which wraps an error with the provided formatted message.
+// Panic panics with a value of type *panik.KnownCause which wraps an error with the provided formatted message.
 func Panic(format string, args ...interface{}) {
 	panic(&KnownCause{cause: fmt.Errorf(format, args...)})
 }
 
-// IsKnownCause returns true when err or one of its wrapped errors is of type *panik.Known, i.e. err came from a panic
+// IsKnownCause returns true when err or one of its wrapped errors is of type *panik.KnownCause, i.e. err came from a panic
 // triggered using panik, or from To(Custom)Error (and not from somewhere else).
 func IsKnownCause(err error) bool {
 	var known *KnownCause
 	return errors.As(err, &known)
 }
 
-// Handle handles a panic if and only if the recovered value is an error err which is or wraps an error of type *panik.Known,
+// Handle handles a panic if and only if the recovered value is an error err which is or wraps an error of type *panik.KnownCause,
 // calling your provided function with the panic value type-asserted to an error value.
 func Handle(handler func(r error)) {
 	r := recover()

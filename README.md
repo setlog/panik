@@ -68,15 +68,16 @@ func iAmAGoroutine(everythingChannel chan interface{}) interface{} {
     everythingChannel<-getEverything()
 }
 
-func iAmAnotherGoroutine(everythingChannel chan interface{}) interface{} {
+func iAmAnotherGoroutine() {
     defer panik.WriteTrace(os.Stderr)
     defer panik.Handle(func(r error) {
-        // never reached: plain panic() is not an error which is or wraps a *panik.Known. Only panik.Panic() produces such a value
+        // never reached: plain panic() is not an error which is or wraps a *panik.KnownCause.
+        // Only panik.Panic() and panik.OnError() panic with such a value.
     })
     panic("very critical problem. DO NOT RECOVER")
 }
 
-func iAmYetAnotherGoroutine(everythingChannel chan interface{}) interface{} { // a more explicit variant of iAmAnotherGoroutine
+func iAmYetAnotherGoroutine() { // a more explicit variant of iAmAnotherGoroutine
     defer panik.WriteTrace(os.Stderr)
     defer func() {
         if r := recover(); r != nil {
