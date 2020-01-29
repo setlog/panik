@@ -29,7 +29,7 @@ func Describe(format string, args ...interface{}) {
 	panic(panicError)
 }
 
-// Described is like Describe, but also makes the next call to Describe effective again.
+// Described is like Describe, but also makes the next call to Describe/Described effective again.
 func Described(format string, args ...interface{}) {
 	r := recover()
 	if r == nil {
@@ -72,6 +72,13 @@ func ToCustomError(errPtr *error, newErrorFunc func(cause error, args ...interfa
 		return
 	}
 	*errPtr = newErrorFunc(makeCause(r), args...)
+}
+
+// OnError panics with a new error if err is not nil, using given format and args in the style of fmt.Errorf.
+func OnError(err error, format string, args ...interface{}) {
+	if err != nil {
+		panic(makeError(format, err, args...))
+	}
 }
 
 // WriteTrace recovers from any panic and writes it to the given writer, the same way that Go itself does when a goroutine

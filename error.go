@@ -1,8 +1,9 @@
 package panik
 
-import "fmt"
-
-import "strings"
+import (
+	"fmt"
+	"regexp"
+)
 
 // Error wraps non-error values provided to panic()
 type Error struct {
@@ -38,7 +39,7 @@ func makeError(format string, panicValue interface{}, args ...interface{}) error
 			args[i] = panicError
 		}
 	}
-	if !hasErrorFormattingDirective(format) {
+	if !hasErrorFormattingDirective.MatchString(format) {
 		format += ": %w"
 		args = append(args, panicError)
 	}
@@ -52,15 +53,4 @@ func makeCause(panicValue interface{}) error {
 	return &Error{value: panicValue}
 }
 
-func hasErrorFormattingDirective(format string) bool {
-	for {
-		i := strings.Index(format, "%w")
-		if i == -1 {
-			return false
-		}
-		if i == 0 || format[i-1] != '%' {
-			return true
-		}
-		format = format[i+2:]
-	}
-}
+var hasErrorFormattingDirective *regexp.Regexp = regexp.MustCompile("(([^%]|^)(%%)*%w)")

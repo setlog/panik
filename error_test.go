@@ -22,3 +22,23 @@ func TestMakeErrorSeesExistingFormattingDirective(t *testing.T) {
 		t.Fatalf("unexpected result: %v", err)
 	}
 }
+
+func TestHasErrorFormattingDirective(t *testing.T) {
+	tests := []struct {
+		format   string
+		expected bool
+	}{
+		{"%w", true},
+		{"%%w", false},
+		{"%%%w", true},
+		{"oof: %w", true},
+		{"oof: %%w", false},
+		{"oof: %%%w", true},
+	}
+	for i, test := range tests {
+		result := hasErrorFormattingDirective.MatchString(test.format)
+		if result != test.expected {
+			t.Errorf("%d: (%v) yielded %v. Expected %v.", i, test.format, result, test.expected)
+		}
+	}
+}

@@ -1,10 +1,16 @@
 package panik
 
 import (
-	"fmt"
 	"io"
+	"regexp"
 	"strings"
 )
+
+var verboseRegExps []*regexp.Regexp = []*regexp.Regexp{
+	regexp.MustCompile(`^panic\(.*$`),
+	regexp.MustCompile(`^runtime/debug.Stack\(.*$`),
+	regexp.MustCompile(`^github.com/setlog/panik\..*\(.*$`),
+}
 
 type traceCleaner struct {
 	destination io.Writer
@@ -15,7 +21,11 @@ type traceCleaner struct {
 func (tc *traceCleaner) Write(p []byte) (n int, err error) {
 	tc.line += string(p)
 OUTER:
-	for nextLineIndex := strings.Index(tc.line, "\n") + 1; nextLineIndex > 0; nextLineIndex = strings.Index(tc.line, "\n") + 1 {
+	for {
+		nextLineIndex := strings.Index(tc.line, "\n") + 1
+		if nextLineIndex == 0 {
+			return len(p), nil
+		}
 		line := tc.line[:nextLineIndex]
 		tc.line = tc.line[nextLineIndex:]
 		if tc.removeNext {
@@ -23,8 +33,8 @@ OUTER:
 			tc.removeNext = false
 			continue
 		}
-		for _, cleanFunc := range cleanFuncs {
-			if strings.HasPrefix(line, fmt.Sprintf("%s(", cleanFunc)) {
+		for _, verboseRegExp := range verboseRegExps {
+			if verboseRegExp.MatchString(line[:len(line)-1]) {
 				n += len(line)
 				tc.removeNext = true
 				continue OUTER
@@ -36,5 +46,4 @@ OUTER:
 			return n, err
 		}
 	}
-	return len(p), nil
 }
