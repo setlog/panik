@@ -55,7 +55,7 @@ func ToError(errPtr *error, format string, args ...interface{}) {
 	if r == nil {
 		return
 	}
-	*errPtr = makeError(format, &KnownCause{makeCause(r)}, args)
+	*errPtr = makeError(format, &knownCause{makeCause(r)}, args...)
 }
 
 // ToCustomError recovers from any panic if *errPtr is a nil error value and sets it to a new error using the provided function
@@ -71,25 +71,25 @@ func ToCustomError(errPtr *error, newErrorFunc func(cause error, args ...interfa
 	if r == nil {
 		return
 	}
-	*errPtr = newErrorFunc(&KnownCause{makeCause(r)}, args...)
+	*errPtr = newErrorFunc(&knownCause{makeCause(r)}, args...)
 }
 
 // OnError panics with a new error if err is not nil, using given format and args in the style of fmt.Errorf.
 func OnError(err error, format string, args ...interface{}) {
 	if err != nil {
-		panic(makeError(format, &KnownCause{cause: err}, args...))
+		panic(makeError(format, &knownCause{cause: err}, args...))
 	}
 }
 
 // Panic panics with a value of type *panik.KnownCause which wraps an error with the provided formatted message.
 func Panic(format string, args ...interface{}) {
-	panic(&KnownCause{cause: fmt.Errorf(format, args...)})
+	panic(&knownCause{cause: fmt.Errorf(format, args...)})
 }
 
 // IsKnownCause returns true when err or one of its wrapped errors is of type *panik.KnownCause, i.e. err came from a panic
 // triggered using panik, or from To(Custom)Error (and not from somewhere else).
 func IsKnownCause(err error) bool {
-	var known *KnownCause
+	var known *knownCause
 	return errors.As(err, &known)
 }
 
@@ -101,11 +101,10 @@ func Handle(handler func(r error)) {
 		return
 	}
 	if err, isError := r.(error); isError {
-		var known *KnownCause
+		var known *knownCause
 		if errors.As(err, &known) {
 			handler(err)
-		} else {
-			panic(r)
+			return
 		}
 	}
 	panic(r)

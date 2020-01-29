@@ -23,7 +23,7 @@ func makeCause(panicValue interface{}) error {
 	if err, isError := panicValue.(error); isError {
 		return err
 	}
-	return &Value{value: panicValue}
+	return &value{value: panicValue}
 }
 
 var hasErrorFormattingDirective *regexp.Regexp = regexp.MustCompile("(([^%]|^)(%%)*%w)")

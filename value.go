@@ -2,21 +2,21 @@ package panik
 
 import "fmt"
 
-// Value wraps non-error values provided to panic()
-type Value struct {
+// value wraps non-error values provided to panic()
+type value struct {
 	value interface{}
 }
 
-func (e *Value) Error() string {
+func (e *value) Error() string {
 	return fmt.Sprintf("%v", e.value)
 }
 
-func (e *Value) String() string {
+func (e *value) String() string {
 	return e.Error()
 }
 
 // Unwrap returns the result of Value() if it is an error; nil otherwise.
-func (e *Value) Unwrap() error {
+func (e *value) Unwrap() error {
 	if err, isError := e.value.(error); isError {
 		return err
 	}
@@ -24,6 +24,6 @@ func (e *Value) Unwrap() error {
 }
 
 // Value returns the value wrapped by this *Error, which has been provided to panic().
-func (e *Value) Value() interface{} {
+func (e *value) Value() interface{} {
 	return e.value
 }

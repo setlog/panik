@@ -1,18 +1,18 @@
 package panik
 
-// KnownCause is an error-wrapper which signals that it originates from a call to To(Custom)Error, OnError or Start.
-type KnownCause struct {
+// knownCause is an error-wrapper which signals that it originates from a call to To(Custom)Error, OnError or Start.
+type knownCause struct {
 	cause error
 }
 
-func (e *KnownCause) Error() string {
+func (e *knownCause) Error() string {
 	return e.cause.Error()
 }
 
-func (e *KnownCause) String() string {
+func (e *knownCause) String() string {
 	return e.Error()
 }
 
-func (e *KnownCause) Unwrap() error {
+func (e *knownCause) Unwrap() error {
 	return e.cause
 }
