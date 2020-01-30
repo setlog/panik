@@ -9,3 +9,10 @@
 - Fixed detection of existing error-formatting directive failing in special cases.
 - Got rid of code generation.
 - Added tests, eliminating some issues.
+
+# v0.3.0 (TBD)
+- Renamed `WriteTrace()` to `RecoverTraceTo()`.
+- Added `RecoverTrace()`.
+- `ToError()` will no longer contain a `*panik.knownCause` in the error-chain.
+- Removed `ToCustomError()`.
+- Renamed `IsKnownCause()` to `HasKnownCause()`.

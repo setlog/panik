@@ -10,11 +10,8 @@ func makeError(format string, cause error, args ...interface{}) error {
 	for i := 0; i < l; i++ {
 		if _, isCause := args[i].(Cause); isCause {
 			args[i] = cause
+			break
 		}
-	}
-	if !hasErrorFormattingDirective.MatchString(format) {
-		format += ": %w"
-		args = append(args, cause)
 	}
 	return fmt.Errorf(format, args...)
 }
@@ -24,6 +21,15 @@ func makeCause(panicValue interface{}) error {
 		return err
 	}
 	return &value{value: panicValue}
+}
+
+func containsCause(args ...interface{}) bool {
+	for _, arg := range args {
+		if _, isCause := arg.(Cause); isCause {
+			return true
+		}
+	}
+	return false
 }
 
 var hasErrorFormattingDirective *regexp.Regexp = regexp.MustCompile("(([^%]|^)(%%)*%w)")

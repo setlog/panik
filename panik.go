@@ -5,47 +5,33 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"runtime/debug"
-	"sync"
 )
 
-// Cause is an empty struct which signals that its position in a variadic argument list matches with a "%w" error-formatting directive
-// and that an error-value should take its place.
+// Cause is an empty struct which signals that its position in a variadic argument list matches
+// with a "%w" error-wrapping directive and that an error-value should take its place.
 type Cause struct{}
 
-var describedErrors *sync.Map = &sync.Map{}
-
-// Describe adds additional information to an ongoing panic. Subsequent calls are ineffective until Described()
-// has been called.
-func Describe(format string, args ...interface{}) {
+// Errorf formats an ongoing panic in the style of fmt.Errorf(). If you want to preserve its
+// cause, you need to use the "%w" error-wrapping directive and provide panik.Cause{} as a
+// matching argument.
+func Errorf(format string, args ...interface{}) {
 	r := recover()
 	if r == nil {
 		return
 	}
-	if _, isAlreadyDescribed := describedErrors.Load(r); isAlreadyDescribed {
-		panic(r)
-	}
-	panicError := makeError(format, makeCause(r), args...)
-	describedErrors.Store(panicError, nil)
-	panic(panicError)
-}
-
-// Described is like Describe, but also makes the next call to Describe/Described effective again.
-func Described(format string, args ...interface{}) {
-	r := recover()
-	if r == nil {
-		return
-	}
-	if _, isAlreadyDescribed := describedErrors.Load(r); isAlreadyDescribed {
-		describedErrors.Delete(r)
-		panic(r)
+	if HasKnownCause(r) && !(hasErrorFormattingDirective.MatchString(format) && containsCause(args...)) {
+		panic(&knownCause{cause: fmt.Errorf(format, args...)})
 	}
 	panic(makeError(format, makeCause(r), args...))
 }
 
-// ToError recovers from any panic if *errPtr is a nil error value and sets it to a new error which describes the recovered panic
-// using the provided fmt.Errorf-compliant format with the given format args. This function panics if errPtr is nil.
-func ToError(errPtr *error, format string, args ...interface{}) {
+// ToError recovers from any panic which is or wraps a *panik.knownCause if *errPtr is nil
+// and sets it to the recovered error.
+//
+// This function panics if errPtr is nil.
+func ToError(errPtr *error) {
 	if errPtr == nil {
 		panic(fmt.Errorf("errPtr was nil"))
 	}
@@ -56,65 +42,72 @@ func ToError(errPtr *error, format string, args ...interface{}) {
 	if r == nil {
 		return
 	}
-	*errPtr = makeError(format, &knownCause{makeCause(r)}, args...)
+	if !HasKnownCause(r) {
+		panic(r)
+	}
+	*errPtr = r.(error)
 }
 
-// ToCustomError recovers from any panic if *errPtr is a nil error value and sets it to a new error using the provided function
-// with the given args. The returned error should return cause when passed to errors.Unwrap(). This function panics if errPtr is nil.
-func ToCustomError(errPtr *error, newErrorFunc func(cause error, args ...interface{}) error, args ...interface{}) {
-	if errPtr == nil {
-		panic(fmt.Errorf("errPtr was nil"))
-	}
-	if *errPtr != nil {
-		return
-	}
-	r := recover()
-	if r == nil {
-		return
-	}
-	*errPtr = newErrorFunc(&knownCause{makeCause(r)}, args...)
-}
-
-// OnError panics with a new error if err is not nil, using given format and args in the style of fmt.Errorf.
-func OnError(err error, format string, args ...interface{}) {
+// OnError panics with &knownCause{cause: err} if err is not nil.
+func OnError(err error) {
 	if err != nil {
-		panic(makeError(format, &knownCause{cause: err}, args...))
+		panic(&knownCause{cause: err})
 	}
 }
 
-// Panic panics with a value of type *panik.knownCause which wraps an error with the provided formatted message.
-func Panic(format string, args ...interface{}) {
+// IfError panics with &knownCause{cause: panicErr} if err is not nil.
+func IfError(err error, panicErr error) {
+	if err != nil {
+		panic(&knownCause{cause: panicErr})
+	}
+}
+
+// IfErrorf panics with &knownCause{cause: fmt.Errorf(format, args...)} if err is not nil.
+func IfErrorf(err error, format string, args ...interface{}) {
+	if err != nil {
+		panic(&knownCause{cause: fmt.Errorf(format, args...)})
+	}
+}
+
+// Panicf panics with a value of type *panik.knownCause which wraps a new error
+// with the provided formatted message.
+func Panicf(format string, args ...interface{}) {
 	panic(&knownCause{cause: fmt.Errorf(format, args...)})
 }
 
-// IsKnownCause returns true when err or one of its wrapped errors is of type *panik.knownCause, i.e. err came from a panic
-// triggered using panik, or from To(Custom)Error (and not from somewhere else).
-func IsKnownCause(err error) bool {
-	var known *knownCause
-	return errors.As(err, &known)
+// HasKnownCause returns true when r or one of its wrapped errors is of type
+// *panik.knownCause, i.e. r came from a panic triggered using panik.
+func HasKnownCause(r interface{}) bool {
+	if err, isError := r.(error); isError {
+		var known *knownCause
+		return errors.As(err, &known)
+	}
+	return false
 }
 
-// Handle handles a panic if and only if the recovered value is an error err which is or wraps an error of type *panik.knownCause,
-// calling your provided function with the panic value type-asserted to an error value.
+// Handle recovers a panic if and only if the recovered value is an error which is or wraps a *panik.knownCause
+// and calls your provided handler function with it as a parameter.
+//
+// Use cases of Handle() include:
+// - Calling panik.OnError() with your own implementation of the error interface.
+// - Doing cleanup/finalization based on the type of r.
+//
+// Clean-up of state should happen in a traditional defer func(){}()-call.
 func Handle(handler func(r error)) {
 	r := recover()
 	if r == nil {
 		return
 	}
-	if err, isError := r.(error); isError {
-		var known *knownCause
-		if errors.As(err, &known) {
-			handler(err)
-			return
-		}
+	if !HasKnownCause(r) {
+		panic(r)
 	}
-	panic(r)
+	handler(r.(error))
 }
 
-// WriteTrace recovers from any panic and writes it to the given writer, the same way that Go itself does when a goroutine
+// RecoverTraceTo recovers from any panic and writes it to the given writer, the same way that Go itself does when a goroutine
 // terminates due to not having recovered from a panic, but with excessive descends into panic.go and panik.go removed.
-// If there is no panic, WriteTrace does nothing.
-func WriteTrace(w io.Writer) {
+// If there is no panic or the panic is nil, RecoverTraceTo does nothing.
+func RecoverTraceTo(w io.Writer) {
 	r := recover()
 	if r == nil {
 		return
@@ -122,5 +115,49 @@ func WriteTrace(w io.Writer) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	w.Write([]byte(fmt.Sprintf("panic: %v\n\n%s", r, string(sb.Bytes()))))
+	w.Write([]byte(fmt.Sprintf("tracing: %v:\n%s\n", r, string(sb.Bytes()))))
+}
+
+// RecoverTrace recovers from any panic and writes it to os.Stderr, the same way that Go itself does when a goroutine
+// terminates due to not having recovered from a panic, but with excessive descends into panic.go and panik.go removed.
+// If there is no panic or the panic is nil, RecoverTrace does nothing.
+func RecoverTrace() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	os.Stderr.Write([]byte(fmt.Sprintf("tracing: %v:\n%s\n", r, string(sb.Bytes()))))
+}
+
+// ExitTraceTo recovers from any panic and writes it to the given writer, the same way that Go itself does when a goroutine
+// terminates due to not having recovered from a panic, but with excessive descends into panic.go and panik.go removed.
+// If there is no panic or the panic is nil, ExitTraceTo does nothing.
+func ExitTraceTo(w io.Writer) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	w.Write([]byte(fmt.Sprintf("tracing: %v:\n%s\n", r, string(sb.Bytes()))))
+	os.Exit(2)
+}
+
+// ExitTrace recovers from any panic and writes it to os.Stderr, the same way that Go itself does when a goroutine
+// terminates due to not having recovered from a panic, but with excessive descends into panic.go and panik.go removed.
+// If there is no panic or the panic is nil, ExitTrace does nothing.
+func ExitTrace() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	os.Stderr.Write([]byte(fmt.Sprintf("tracing: %v:\n%s\n", r, string(sb.Bytes()))))
+	os.Exit(2)
 }

@@ -23,38 +23,7 @@ func TestDescribe(t *testing.T) {
 			t.Fatalf("Error() returned \"%s\". Expected \"%s\".", errMessage, expected)
 		}
 	}()
-	defer panik.Described("A: %w", panik.Cause{})
-	defer panik.Describe("B: %w", panik.Cause{})
-	defer panik.Describe("C%d: %w", 42, panik.Cause{})
-	panic("panic")
-}
-
-func TestMultipleDescribe(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("received no panic")
-		}
-		err, isError := r.(error)
-		if !isError {
-			t.Fatal("received non-error")
-		}
-		errMessage := err.Error()
-		expected := "C42: F42: panic"
-		if errMessage != expected {
-			t.Fatalf("Error() returned \"%s\". Expected \"%s\".", errMessage, expected)
-		}
-	}()
-	defer panik.Described("A: %w", panik.Cause{})
-	defer panik.Describe("B: %w", panik.Cause{})
-	defer panik.Describe("C%d: %w", 42, panik.Cause{})
-	panFunc()
-}
-
-func panFunc() {
-	defer panik.Described("D: %w", panik.Cause{})
-	defer panik.Describe("E: %w", panik.Cause{})
-	defer panik.Describe("F%d: %w", 42, panik.Cause{})
+	defer panik.Errorf("C%d: %w", 42, panik.Cause{})
 	panic("panic")
 }
 
@@ -64,40 +33,20 @@ func TestToError(t *testing.T) {
 		t.Fatalf("err was nil")
 	}
 	message := err.Error()
-	expectedMessage := "b: 42: oof"
+	expectedMessage := "a: 42: oof"
 	if message != expectedMessage {
 		t.Fatalf("Message was \"%v\". Expected \"%v\".", message, expectedMessage)
 	}
-	if !panik.IsKnownCause(err) {
-		t.Fatalf("err is not a known cause")
-	}
-}
-
-func TestToCustomError(t *testing.T) {
-	err := catchPanicAsCustomError()
-	if err == nil {
-		t.Fatalf("err was nil")
-	}
-	message := err.Error()
-	expectedMessage := "custom error 42: oof"
-	if message != expectedMessage {
-		t.Fatalf("Message was \"%v\". Expected \"%v\".", message, expectedMessage)
-	}
-	if !panik.IsKnownCause(err) {
+	if !panik.HasKnownCause(err) {
 		t.Fatalf("err is not a known cause")
 	}
 }
 
 func catchPanic() (retErr error) {
-	defer panik.ToError(&retErr, "a: %d", 42)
-	defer panik.ToError(&retErr, "b: %d", 42)
-	panic("oof")
-}
-
-func catchPanicAsCustomError() (retErr error) {
-	defer panik.ToCustomError(&retErr, newCustomError, 42)
-	defer panik.ToCustomError(&retErr, newCustomError, 42)
-	panic("oof")
+	defer panik.ToError(&retErr)
+	defer panik.Errorf("a: %d: %w", 42, panik.Cause{})
+	panik.Panicf("oof")
+	return retErr
 }
 
 func newCustomError(cause error, args ...interface{}) error {
@@ -106,7 +55,7 @@ func newCustomError(cause error, args ...interface{}) error {
 
 func TestOnError(t *testing.T) {
 	var err error
-	panik.OnError(err, "oof: %d", 42)
+	panik.OnError(err)
 	err = fmt.Errorf("an error")
 	defer func() {
 		r := recover()
@@ -114,14 +63,14 @@ func TestOnError(t *testing.T) {
 			t.Fatal("did not panic")
 		}
 	}()
-	panik.OnError(err, "oof: %d", 42)
+	panik.OnError(err)
 }
 
-func TestPanic(t *testing.T) {
+func TestPanicf(t *testing.T) {
 	defer func() {
 		expectKnownCause(t, recover())
 	}()
-	panik.Panic("oof: %d", 42)
+	panik.Panicf("oof: %d", 42)
 }
 
 func expectKnownCause(t *testing.T, r interface{}) {
@@ -133,21 +82,21 @@ func expectKnownCause(t *testing.T, r interface{}) {
 	if err, isError = r.(error); !isError {
 		t.Fatal("r was not an error")
 	}
-	if !panik.IsKnownCause(err) {
+	if !panik.HasKnownCause(err) {
 		t.Fatal("r was not a known cause")
 	}
 }
 
-func TestIsKnownCause(t *testing.T) {
-	if panik.IsKnownCause(nil) {
+func TestHasKnownCause(t *testing.T) {
+	if panik.HasKnownCause(nil) {
 		t.Fatal("nil was a known cause")
 	}
 	err := catchPanic()
-	if !panik.IsKnownCause(err) {
+	if !panik.HasKnownCause(err) {
 		t.Fatal("not a known cause")
 	}
 	err2 := fmt.Errorf("wrapped: %w", err)
-	if !panik.IsKnownCause(err2) {
+	if !panik.HasKnownCause(err2) {
 		t.Fatal("wrapped is not a known cause")
 	}
 }
