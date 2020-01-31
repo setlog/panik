@@ -2,7 +2,6 @@ package panik
 
 import (
 	"fmt"
-	"regexp"
 )
 
 func makeError(format string, cause error, args ...interface{}) error {
@@ -31,5 +30,3 @@ func containsCause(args ...interface{}) bool {
 	}
 	return false
 }
-
-var hasErrorFormattingDirective *regexp.Regexp = regexp.MustCompile("(([^%]|^)(%%)*%w)")

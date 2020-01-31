@@ -7,7 +7,7 @@ import (
 	"github.com/setlog/panik"
 )
 
-func TestDescribe(t *testing.T) {
+func TestWrapf(t *testing.T) {
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -23,7 +23,7 @@ func TestDescribe(t *testing.T) {
 			t.Fatalf("Error() returned \"%s\". Expected \"%s\".", errMessage, expected)
 		}
 	}()
-	defer panik.Errorf("C%d: %w", 42, panik.Cause{})
+	defer panik.Wrapf("C%d", 42)
 	panic("panic")
 }
 
@@ -44,7 +44,7 @@ func TestToError(t *testing.T) {
 
 func catchPanic() (retErr error) {
 	defer panik.ToError(&retErr)
-	defer panik.Errorf("a: %d: %w", 42, panik.Cause{})
+	defer panik.Wrapf("a: %d", 42)
 	panik.Panicf("oof")
 	return retErr
 }
@@ -112,7 +112,7 @@ func TestHandleReactsToKnownError(t *testing.T) {
 			t.Fatal("panic was not recovered")
 		}
 	}()
-	defer panik.Handle(func(r error) {
+	defer panik.Handle(func(r interface{}) {
 		if r == nil {
 			t.Fatal("handler was called with nil error")
 		}
@@ -121,28 +121,39 @@ func TestHandleReactsToKnownError(t *testing.T) {
 	panic(catchPanic())
 }
 
-func TestHandleIgnoresValue(t *testing.T) {
+func TestHandlePanicsAgainOnUnknownValue(t *testing.T) {
+	handled := false
 	defer func() {
+		if !handled {
+			t.Fatalf("unknown panic was not handled")
+		}
 		r := recover()
 		if r == nil {
-			t.Fatal("unknown panic was recovered")
+			t.Fatal("unknown panic value was not thrown again")
 		}
 	}()
-	defer panik.Handle(func(r error) {
-		t.Fatalf("panik.Handle() reacted to unknown value with error %v", r)
+	defer panik.Handle(func(r interface{}) {
+		handled = true
+		if r != 42 {
+			t.Fatal("r was not 42")
+		}
 	})
 	panic(42)
 }
 
-func TestHandleIgnoresUnknownError(t *testing.T) {
+func TestHandleConsumesKnownValue(t *testing.T) {
+	handled := false
 	defer func() {
+		if !handled {
+			t.Fatalf("known panic was not handled")
+		}
 		r := recover()
-		if r == nil {
-			t.Fatal("unknown panic was recovered")
+		if r != nil {
+			t.Fatal("known panic value was thrown again")
 		}
 	}()
-	defer panik.Handle(func(r error) {
-		t.Fatalf("panik.Handle() reacted to unknown error %v", r)
+	defer panik.Handle(func(r interface{}) {
+		handled = true
 	})
-	panic(fmt.Errorf("oof"))
+	panik.Panic(42)
 }

@@ -31,24 +31,24 @@ The solutions presented by this module, under the hood, make heavy use of Go 1.1
 ```go
 func getSomething() interface{} { // panic instead of returning error
     a, err := f1()
-    panik.IfErrorf(err, "f1() failed")
+    panik.OnErrorf(err, "f1() failed")
     b, err := f2(a)
-    panik.IfErrorf(err, "f2(%v) failed", a)
+    panik.OnErrorf(err, "f2(%v) failed", a)
     c, err := f3(b)
-    panik.IfErrorf(err, "f3(%v) failed", b)
+    panik.OnErrorf(err, "f3(%v) failed", b)
     return c
 }
 
 func getEverything() []interface{} {
-    defer panik.Errorf("could not get everything: %w", panik.Cause{}) // add more info to an ongoing panic
+    defer panik.Wrapf("could not get everything") // add more info to an ongoing panic
     s1 := getSomething()
     s2 := getSomethingElse()
     return []interface{} { s1, s2 }
 }
 
 func GetEverythingAndThenSome() (obj interface{}, retErr error) {
-    defer panik.ToError(&retErr) // de-escalate panic into error again
-    return []interface{} { getEverything()..., "and then some" }, nil
+    defer panik.ToError(&retErr) // de-escalate panic into error
+    return []interface{} { "and then some", getEverything()... }, nil
 }
 
 func iAmAGoroutine(everythingChannel chan interface{}) interface{} {
@@ -56,35 +56,27 @@ func iAmAGoroutine(everythingChannel chan interface{}) interface{} {
     everythingChannel<-getEverything()
 }
 
-// func iAmAnotherGoroutine() {
-//     defer panik.WriteTrace(os.Stderr)
-//     defer panik.Handle(func(r error) {
-//         // never reached: plain panic() is not an error which is or wraps a *panik.knownCause.
-//         // Only panik.Panicf() and panik.OnError() panic with such a value.
-//     })
-//     panic("very critical problem. DO NOT RECOVER")
-// }
+func iAmAnotherGoroutine() {
+    defer func() {
+        fmt.Println(recover() == nil) // false, because the panic did not originate from panik
+    }()
+    defer panik.Handle(func(r interface{}) { // will resume the panic at the end
+        // clean up
+    })
+    panik.Wrap("error setting voltage level for flux compensator")
+    panic("very critical problem")
+}
 
-// func iAmYetAnotherGoroutine() { // a more explicit variant of iAmAnotherGoroutine
-//     defer panik.WriteTrace(os.Stderr)
-//     defer func() {
-//         if r := recover(); r != nil {
-//             if err, isError := r.(error); isError {
-//                 var known *panik.Known
-//                 if errors.As(err, &known) {
-//                     fmt.Println("our code is aware of the origin of %v", r) // (a)
-//                     return
-//                 }
-//             }
-//             fmt.Println("our code has no idea where %v comes from", r) // (b)
-//             panic(r)
-//         }
-//     }()
-
-//     panic("(a)")
-//     // OR
-//     panik.Panic("(b)")
-// }
+func iAmYetAnotherGoroutine() {
+    defer func() {
+        fmt.Println(recover() == nil) // true, because the panic did originate from panik
+    }()
+    defer panik.Handle(func(r interface{}) { // recovers the panic
+        // clean up
+    })
+    panik.Wrap("error processing item 42")
+    panik.Panic("no biggie")
+}
 
 func getAnotherThing(id int) interface{} {
     if id == 42 {
@@ -95,4 +87,5 @@ func getAnotherThing(id int) interface{} {
 ```
 
 ## Remarks
-* `err != nil` will continue to exist. You will also still want to perform type-assertions to get more information about an error's nature where appropriate. I.e. you cannot stop using your head here.
+* Use `panik.ToError()` at API boundaries. APIs which panic are not idiomatic Go.
+* You will still need to consider when to wrap an error and when to merely format its message using `%v`; the types of wrapped errors are part of your API. You can use `panik.IfError()` and `panik.IfErrorf()` for the highest level of control.
