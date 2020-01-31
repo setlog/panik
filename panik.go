@@ -47,7 +47,7 @@ func OnErrorf(err error, format string, args ...interface{}) {
 // implementation for panicErr.
 func IfError(err error, panicErr error) {
 	if err != nil {
-		if HasKnownCause(err) && !HasKnownCause(panicErr) {
+		if !HasKnownCause(panicErr) {
 			panic(&knownCause{cause: panicErr})
 		}
 		panic(panicErr)
@@ -66,7 +66,7 @@ type Cause struct{}
 func IfErrorf(err error, format string, args ...interface{}) {
 	if err != nil {
 		panicErr := makeError(format, err, args...)
-		if HasKnownCause(err) && !HasKnownCause(panicErr) {
+		if !HasKnownCause(panicErr) {
 			panic(&knownCause{cause: panicErr})
 		}
 		panic(panicErr)

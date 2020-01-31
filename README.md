@@ -1,7 +1,5 @@
 # panik
 
-WORK IN PROGRESS (WIP)
-
 An error-handling paradigm for Go.
 
 The problem:
