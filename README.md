@@ -1,4 +1,4 @@
-# panik
+# panik ![](https://github.com/setlog/panik/workflows/Tests/badge.svg)
 
 An error-handling paradigm for Go.
 
