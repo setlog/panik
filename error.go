@@ -19,7 +19,7 @@ func makeCause(panicValue interface{}) error {
 	if err, isError := panicValue.(error); isError {
 		return err
 	}
-	return &value{value: panicValue}
+	return &Value{value: panicValue}
 }
 
 func containsCause(args ...interface{}) bool {

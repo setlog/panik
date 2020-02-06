@@ -112,10 +112,10 @@ func ToError(errPtr *error) {
 	*errPtr = r.(error)
 }
 
-// Handle recovers any panic and calls your provided function with the recovered
-// value as parameter if it is not nil, and then panics again if the recovered
-// value did not originate from one of panik's functions.
-func Handle(handler func(r interface{})) {
+// Recover recovers any panic and calls your provided function with the
+// recovered value as parameter if it is not nil, and then panics again if the
+// recovered value did not originate from one of panik's functions.
+func Recover(handler func(r interface{})) {
 	r := recover()
 	if r == nil {
 		return
@@ -126,8 +126,8 @@ func Handle(handler func(r interface{})) {
 	}
 }
 
-// HasKnownCause returns true when r is an error which is or wraps an error
-// which originated from panik.
+// HasKnownCause returns true when r is or wraps an error which originated from
+// panik.
 func HasKnownCause(r interface{}) bool {
 	if err, isError := r.(error); isError {
 		var known *knownCause
@@ -170,8 +170,8 @@ func RecoverTrace() {
 // ExitTraceTo recovers from any panic and writes it to the given writer, the
 // same way that Go itself does when a goroutine terminates due to not having
 // recovered from a panic, but with excessive descends into panic.go and
-// panik.go removed, and the calls os.Exit(2). If there is no panic or the panic
-// is nil, ExitTraceTo does nothing.
+// panik.go removed, and then calls os.Exit(2). If there is no panic or the
+// panic is nil, ExitTraceTo does nothing.
 func ExitTraceTo(w io.Writer) {
 	r := recover()
 	if r == nil {
@@ -187,8 +187,8 @@ func ExitTraceTo(w io.Writer) {
 // ExitTrace recovers from any panic and writes it to os.Stderr, the same way
 // that Go itself does when a goroutine terminates due to not having recovered
 // from a panic, but with excessive descends into panic.go and panik.go removed,
-// and the calls os.Exit(2). If there is no panic or the panic is nil, ExitTrace
-// does nothing.
+// and then calls os.Exit(2). If there is no panic or the panic is nil,
+// ExitTrace does nothing.
 func ExitTrace() {
 	r := recover()
 	if r == nil {

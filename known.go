@@ -1,6 +1,7 @@
 package panik
 
-// knownCause is an error-wrapper which signals that it originates from a call to To(Custom)Error, OnError or Start.
+// knownCause is an error-wrapper which signals that it originates from a call
+// to one of panik's functions.
 type knownCause struct {
 	cause error
 }

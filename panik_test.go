@@ -215,7 +215,7 @@ func TestHandleReactsToKnownError(t *testing.T) {
 			t.Fatal("panic was not recovered")
 		}
 	}()
-	defer panik.Handle(func(r interface{}) {
+	defer panik.Recover(func(r interface{}) {
 		if r == nil {
 			t.Fatal("handler was called with nil error")
 		}
@@ -235,7 +235,7 @@ func TestHandlePanicsAgainOnUnknownValue(t *testing.T) {
 			t.Fatal("unknown panic value was not thrown again")
 		}
 	}()
-	defer panik.Handle(func(r interface{}) {
+	defer panik.Recover(func(r interface{}) {
 		handled = true
 		if r != 42 {
 			t.Fatal("r was not 42")
@@ -255,7 +255,7 @@ func TestHandleConsumesKnownValue(t *testing.T) {
 			t.Fatal("known panic value was thrown again")
 		}
 	}()
-	defer panik.Handle(func(r interface{}) {
+	defer panik.Recover(func(r interface{}) {
 		handled = true
 	})
 	panik.Panic(42)
