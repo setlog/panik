@@ -3,11 +3,12 @@ package panik
 // knownCause is an error-wrapper which signals that it originates from a call
 // to one of panik's functions.
 type knownCause struct {
-	cause error
+	message string
+	cause   error
 }
 
 func (e *knownCause) Error() string {
-	return e.cause.Error()
+	return e.message
 }
 
 func (e *knownCause) String() string {
@@ -16,4 +17,11 @@ func (e *knownCause) String() string {
 
 func (e *knownCause) Unwrap() error {
 	return e.cause
+}
+
+func makeCause(panicValue interface{}) error {
+	if err, isError := panicValue.(error); isError && err != nil {
+		return err
+	}
+	return &Value{value: panicValue}
 }

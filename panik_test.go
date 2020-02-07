@@ -12,11 +12,11 @@ func TestPanic(t *testing.T) {
 		r := recover()
 		expectKnownCause(t, r)
 		errMessage := r.(error).Error()
-		if errMessage != "oof: 42 43" {
+		if errMessage != "oof" {
 			t.Fatalf("error message was %v", errMessage)
 		}
 	}()
-	panik.Panic("oof: ", 42, 43)
+	panik.Panic("oof")
 }
 
 func TestPanicf(t *testing.T) {
@@ -40,7 +40,7 @@ func expectKnownCause(t *testing.T, r interface{}) {
 	if err, isError = r.(error); !isError {
 		t.Fatal("r was not an error")
 	}
-	if !panik.HasKnownCause(err) {
+	if !panik.Caused(err) {
 		t.Fatal("r was not a known cause")
 	}
 }
@@ -49,7 +49,7 @@ func expectUnknownCause(t *testing.T, r interface{}) {
 	if r == nil {
 		t.Fatal("r was nil")
 	}
-	if panik.HasKnownCause(r) {
+	if panik.Caused(r) {
 		t.Fatal("r was a known cause")
 	}
 }
@@ -69,39 +69,9 @@ func TestOnError(t *testing.T) {
 	panik.OnError(err)
 }
 
-func TestOnErrorf(t *testing.T) {
+func TestOnErrore(t *testing.T) {
 	var err error
-	panik.OnErrorf(err, "oof")
-	err = fmt.Errorf("an error")
-	defer func() {
-		r := recover()
-		expectKnownCause(t, r)
-		errMessage := r.(error).Error()
-		if errMessage != "oof: 42: an error" {
-			t.Fatalf("error message was %v", errMessage)
-		}
-	}()
-	panik.OnErrorf(err, "oof: %d", 42)
-}
-
-func TestIfError(t *testing.T) {
-	var err error
-	panik.IfError(err, fmt.Errorf("foo"))
-	err = fmt.Errorf("an error")
-	defer func() {
-		r := recover()
-		expectKnownCause(t, r)
-		errMessage := r.(error).Error()
-		if errMessage != "foo" {
-			t.Fatalf("error message was %v", errMessage)
-		}
-	}()
-	panik.IfError(err, fmt.Errorf("foo"))
-}
-
-func TestIfErrorf(t *testing.T) {
-	var err error
-	panik.IfErrorf(err, "bla")
+	panik.OnErrore(err, fmt.Errorf("foo"))
 	err = fmt.Errorf("an error")
 	defer func() {
 		r := recover()
@@ -111,7 +81,47 @@ func TestIfErrorf(t *testing.T) {
 			t.Fatalf("error message was %v", errMessage)
 		}
 	}()
-	panik.IfErrorf(err, "foo: %w", panik.Cause{})
+	panik.OnErrore(err, fmt.Errorf("foo"))
+}
+
+func TestOnErrorfw(t *testing.T) {
+	var err error
+	panik.OnErrorfw(err, "oof")
+	err = fmt.Errorf("an error")
+	defer func() {
+		r := recover()
+		expectKnownCause(t, r)
+		errMessage := r.(error).Error()
+		if errMessage != "oof: 42: an error" {
+			t.Fatalf("error message was %v", errMessage)
+		}
+	}()
+	panik.OnErrorfw(err, "oof: %d", 42)
+}
+
+func TestOnErrorfv(t *testing.T) {
+	var err error
+	panik.OnErrorfv(err, "bla")
+	err = fmt.Errorf("an error")
+	defer func() {
+		r := recover()
+		expectKnownCause(t, r)
+		errMessage := r.(error).Error()
+		if errMessage != "foo: 42: an error" {
+			t.Fatalf("error message was %v", errMessage)
+		}
+	}()
+	panik.OnErrorfv(err, "foo: %d", 42)
+}
+
+func TestOnErrorfvRetainsKnownCause(t *testing.T) {
+	defer func() {
+		r := recover()
+		if !panik.Caused(r) {
+			t.Fatalf("r not marked as caused by panik")
+		}
+	}()
+	panik.OnErrorfv(catchPanic(), "onerror")
 }
 
 func TestWrap(t *testing.T) {
@@ -160,7 +170,7 @@ func TestToErrorCatchesKnownError(t *testing.T) {
 	if message != expectedMessage {
 		t.Fatalf("Message was \"%v\". Expected \"%v\".", message, expectedMessage)
 	}
-	if !panik.HasKnownCause(err) {
+	if !panik.Caused(err) {
 		t.Fatalf("err is not a known cause")
 	}
 }
@@ -191,72 +201,15 @@ func newCustomError(cause error, args ...interface{}) error {
 }
 
 func TestHasKnownCause(t *testing.T) {
-	if panik.HasKnownCause(nil) {
+	if panik.Caused(nil) {
 		t.Fatal("nil was a known cause")
 	}
 	err := catchPanic()
-	if !panik.HasKnownCause(err) {
+	if !panik.Caused(err) {
 		t.Fatal("not a known cause")
 	}
 	err2 := fmt.Errorf("wrapped: %w", err)
-	if !panik.HasKnownCause(err2) {
+	if !panik.Caused(err2) {
 		t.Fatal("wrapped is not a known cause")
 	}
-}
-
-func TestHandleReactsToKnownError(t *testing.T) {
-	handled := false
-	defer func() {
-		if !handled {
-			t.Error("handler was not called")
-		}
-		r := recover()
-		if r != nil {
-			t.Fatal("panic was not recovered")
-		}
-	}()
-	defer panik.Recover(func(r interface{}) {
-		if r == nil {
-			t.Fatal("handler was called with nil error")
-		}
-		handled = true
-	})
-	panic(catchPanic())
-}
-
-func TestHandlePanicsAgainOnUnknownValue(t *testing.T) {
-	handled := false
-	defer func() {
-		if !handled {
-			t.Fatalf("unknown panic was not handled")
-		}
-		r := recover()
-		if r == nil {
-			t.Fatal("unknown panic value was not thrown again")
-		}
-	}()
-	defer panik.Recover(func(r interface{}) {
-		handled = true
-		if r != 42 {
-			t.Fatal("r was not 42")
-		}
-	})
-	panic(42)
-}
-
-func TestHandleConsumesKnownValue(t *testing.T) {
-	handled := false
-	defer func() {
-		if !handled {
-			t.Fatalf("known panic was not handled")
-		}
-		r := recover()
-		if r != nil {
-			t.Fatal("known panic value was thrown again")
-		}
-	}()
-	defer panik.Recover(func(r interface{}) {
-		handled = true
-	})
-	panik.Panic(42)
 }

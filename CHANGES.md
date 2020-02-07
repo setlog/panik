@@ -13,7 +13,9 @@
 # v0.3.0 (2020-01-31)
 - Major rewrite.
 
-# v0.4.0 (2020-02-06)
+# v0.4.0 (2020-02-07)
 - Add more info to README.md.
-- Renamed `Handle()` to `Recover()`.
+- Removed `Handle()`.
 - `panik.value` is now `panik.Value`, allowing users to inspect the value.
+- Changed signature of `Panic()` to be consistent with `panic()`.
+- Simplified API.
