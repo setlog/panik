@@ -19,3 +19,6 @@
 - `panik.value` is now `panik.Value`, allowing users to inspect the value.
 - Changed signature of `Panic()` to be consistent with `panic()`.
 - Simplified API.
+
+# v0.4.1 (2020-04-21)
+- Add `RecoverTraceFunc()`.

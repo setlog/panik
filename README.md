@@ -82,6 +82,7 @@ func Caused(r interface{}) bool {} // returns true if r was recovered from a pan
 ```go
 func RecoverTrace() {} // to stderr
 func RecoverTraceTo(w io.Writer) {} // to w
+func RecoverTraceFunc(f func(trace string)) {} // to whatever else, e.g. an error dialog box (convenience function)
 func ExitTrace() {} // like RecoverTrace(), followed by os.Exit(2)
 func ExitTraceTo(w io.Writer) {} // like RecoverTraceTo(), followed by os.Exit(2)
 ```
