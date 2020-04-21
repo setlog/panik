@@ -9,8 +9,8 @@ import (
 	"runtime/debug"
 )
 
-// Panic panics with an error which wraps r if it is an error and &Value{r} if r
-// is not an error.
+// Panic panics with an error which wraps r if r is an error and an error
+// which wraps &Value{r} if r is not an error.
 func Panic(r interface{}) {
 	c := makeCause(r)
 	panic(&knownCause{cause: c, message: c.Error()})
