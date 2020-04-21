@@ -41,15 +41,17 @@ func OnErrore(err error, panicErr error) {
 }
 
 // OnErrorfw panics with an error which wraps err and returns
-// fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err) for Error().
+// fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err) for Error()
+// if err is not nil.
 func OnErrorfw(err error, format string, args ...interface{}) {
 	if err != nil {
 		panic(&knownCause{cause: err, message: fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err)})
 	}
 }
 
-// OnErrorfv panics with an error which wraps fmt.Errorf("%s: %v",
-// fmt.Sprintf(format, args...), err) if err is not nil.
+// OnErrorfv panics with an error which does not wrap err and returns
+// fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err) for Error()
+// if err is not nil.
 func OnErrorfv(err error, format string, args ...interface{}) {
 	if err != nil {
 		panic(&knownCause{cause: nil, message: fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err)})
