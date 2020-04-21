@@ -69,7 +69,7 @@ Use `ToError()` with the `defer`-statement.
 
 #### an important footnote
 
-To prevent unwanted recovery and deescalation of panics originating from programming errors or from outside your own code, panik will never lastingly recover from panics created with `panic()`. Specifically, you need to use [one of panik's panicking functions](#error-to-panic) for `ToError()` to work.
+To prevent unwanted recovery and deescalation of panics originating from programming errors, panik will never lastingly recover from panics created with `panic()`. Specifically, you need to use [one of panik's panicking functions](#error-to-panic) for `defer ToError(err)` to set `*err`.
 
 ### inspect recovered panic value
 
