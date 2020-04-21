@@ -137,7 +137,7 @@ func RecoverTraceTo(w io.Writer) {
 	w.Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes()))))
 }
 
-// RecoverTraceFunc recovers from any panic calls provided function with a stack trace,
+// RecoverTraceFunc recovers from any panic and calls provided function with a stack trace,
 // formatted the same way that Go itself does when a goroutine terminates due to not having
 // recovered from a panic, but with excessive descends into panic.go and panik removed. If
 // there is no panic or the panic is nil, RecoverTraceFunc does nothing.
