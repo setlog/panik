@@ -21,4 +21,4 @@
 - Simplified API.
 
 # v0.4.1 (2020-04-21)
-- Add `RecoverTraceFunc()`.
+- Add `RecoverTraceFunc()` and `ExitTraceFunc()`.

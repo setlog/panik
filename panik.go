@@ -185,3 +185,19 @@ func ExitTraceTo(w io.Writer) {
 	w.Write([]byte(fmt.Sprintf("fatal: %v:\n%s\n", r, string(sb.Bytes()))))
 	os.Exit(2)
 }
+
+// ExitTraceFunc recovers from any panic and calls provided function with a stack trace,
+// formatted the same way that Go itself does when a goroutine terminates due to not having
+// recovered from a panic, but with excessive descends into panic.go and panik removed. If
+// there is no panic or the panic is nil, ExitTraceFunc does nothing.
+func ExitTraceFunc(f func(trace string)) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	f(fmt.Sprintf("fatal: %v:\n%s\n", r, string(sb.Bytes())))
+	os.Exit(2)
+}
