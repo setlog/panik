@@ -78,8 +78,10 @@ func Wrapf(format string, args ...interface{}) {
 	panic(fmt.Errorf("%s: %w", fmt.Sprintf(format, args...), makeCause(r)))
 }
 
-// ToError recovers from any panic which originated from panik. This function
-// panics if errPtr is nil.
+// ToError recovers from any panic which originated from panik and writes the
+// recovered error to *errPtr.
+//
+// This function panics if errPtr is nil and does nothing if *errPtr is non-nil.
 func ToError(errPtr *error) {
 	if errPtr == nil {
 		panic("errPtr was nil")
@@ -97,6 +99,31 @@ func ToError(errPtr *error) {
 	*errPtr = r.(error)
 }
 
+// ToErrorWithTrace recovers from any panic which originated from panik and writes
+// and error which wraps the recovered error to *errPtr and contains the stack trace
+// of the panic in its message.
+//
+// This function panics if errPtr is nil and does nothing if *errPtr is non-nil.
+func ToErrorWithTrace(errPtr *error) {
+	if errPtr == nil {
+		panic("errPtr was nil")
+	}
+	if *errPtr != nil {
+		return
+	}
+	r := recover()
+	if r == nil {
+		return
+	}
+	if !Caused(r) {
+		panic(r)
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	*errPtr = fmt.Errorf("recovered: %w:\n%s", r, string(sb.Bytes()))
+}
+
 // Caused returns true when r is or wraps an error which originated from panik.
 func Caused(r interface{}) bool {
 	if err, isError := r.(error); isError {
@@ -104,21 +131,6 @@ func Caused(r interface{}) bool {
 		return errors.As(err, &known)
 	}
 	return false
-}
-
-// RecoverTrace recovers from any panic and writes it to os.Stderr, the same way
-// that Go itself does when a goroutine terminates due to not having recovered
-// from a panic, but with excessive descends into panic.go and panik removed. If
-// there is no panic or the panic is nil, RecoverTrace does nothing.
-func RecoverTrace() {
-	r := recover()
-	if r == nil {
-		return
-	}
-	sb := bytes.NewBuffer(nil)
-	tc := &traceCleaner{destination: sb}
-	tc.Write(debug.Stack())
-	os.Stderr.Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes()))))
 }
 
 // RecoverTraceTo recovers from any panic and writes it to the given writer, the
@@ -152,28 +164,7 @@ func RecoverTraceFunc(f func(trace string)) {
 	f(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes())))
 }
 
-// ExitTrace recovers from any panic and writes it to os.Stderr, the same way
-// that Go itself does when a goroutine terminates due to not having recovered
-// from a panic, but with excessive descends into panic.go and panik removed,
-// and then calls os.Exit(2). If there is no panic or the panic is nil,
-// ExitTrace does nothing.
-func ExitTrace() {
-	r := recover()
-	if r == nil {
-		return
-	}
-	sb := bytes.NewBuffer(nil)
-	tc := &traceCleaner{destination: sb}
-	tc.Write(debug.Stack())
-	os.Stderr.Write([]byte(fmt.Sprintf("fatal: %v:\n%s\n", r, string(sb.Bytes()))))
-	os.Exit(2)
-}
-
-// ExitTraceTo recovers from any panic and writes it to the given writer, the
-// same way that Go itself does when a goroutine terminates due to not having
-// recovered from a panic, but with excessive descends into panic.go and panik
-// removed, and then calls os.Exit(2). If there is no panic or the panic is nil,
-// ExitTraceTo does nothing.
+// ExitTraceTo is like RecoverTraceTo, but also calls os.Exit(2) after writing to w.
 func ExitTraceTo(w io.Writer) {
 	r := recover()
 	if r == nil {
@@ -182,14 +173,11 @@ func ExitTraceTo(w io.Writer) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	w.Write([]byte(fmt.Sprintf("fatal: %v:\n%s\n", r, string(sb.Bytes()))))
+	w.Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes()))))
 	os.Exit(2)
 }
 
-// ExitTraceFunc recovers from any panic and calls provided function with a stack trace,
-// formatted the same way that Go itself does when a goroutine terminates due to not having
-// recovered from a panic, but with excessive descends into panic.go and panik removed. If
-// there is no panic or the panic is nil, ExitTraceFunc does nothing.
+// ExitTraceFunc is like RecoverTraceFunc, but also calls os.Exit(2) after returning from f.
 func ExitTraceFunc(f func(trace string)) {
 	r := recover()
 	if r == nil {
@@ -198,6 +186,6 @@ func ExitTraceFunc(f func(trace string)) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	f(fmt.Sprintf("fatal: %v:\n%s\n", r, string(sb.Bytes())))
+	f(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes())))
 	os.Exit(2)
 }

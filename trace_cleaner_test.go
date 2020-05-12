@@ -54,7 +54,9 @@ func runTraceCleaner(t *testing.T, trace []byte, bytesPerCall int) []byte {
 			write(t, traceCleaner, trace[i:limit])
 		}
 	}
-	actualLineCount := len(strings.Split(string(buf.Bytes()), "\n"))
+	cleanTrace := string(buf.Bytes())
+	lines := strings.Split(cleanTrace, "\n")
+	actualLineCount := len(lines)
 	expectedLineCount := 8
 
 	// Expected:
@@ -70,8 +72,11 @@ func runTraceCleaner(t *testing.T, trace []byte, bytesPerCall int) []byte {
 		t.Fatalf("Cleaned up trace has %d lines:\n%s\nExpected it to have %d lines. Original line count was %d.",
 			actualLineCount, string(buf.Bytes()), expectedLineCount, originalLineCount)
 	}
+	if lines[7] != "" {
+		t.Fatalf("Last line was not an empty line.")
+	}
 
-	return buf.Bytes()
+	return []byte(cleanTrace)
 }
 
 func write(t *testing.T, w io.Writer, p []byte) {

@@ -14,11 +14,15 @@
 - Major rewrite.
 
 # v0.4.0 (2020-02-07)
-- Add more info to README.md.
+- Added more info to README.md.
 - Removed `Handle()`.
 - `panik.value` is now `panik.Value`, allowing users to inspect the value.
 - Changed signature of `Panic()` to be consistent with `panic()`.
 - Simplified API.
 
 # v0.4.1 (2020-04-21)
-- Add `RecoverTraceFunc()` and `ExitTraceFunc()`.
+- Added `RecoverTraceFunc()` and `ExitTraceFunc()`.
+
+# v0.5.0 (2020-05-12)
+- Removed `RecoverTrace()` and `ExitTrace()`.
+- Added `ToErrorWithTrace()`.

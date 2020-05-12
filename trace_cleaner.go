@@ -47,8 +47,8 @@ var unwantedLineRegExps []*regexp.Regexp = []*regexp.Regexp{
 }
 
 func isUnwantedLine(line string) bool {
-	for _, verboseRegExp := range unwantedLineRegExps {
-		if verboseRegExp.MatchString(line[:len(line)-1]) {
+	for _, regExp := range unwantedLineRegExps {
+		if regExp.MatchString(line[:len(line)-1]) {
 			return true
 		}
 	}
