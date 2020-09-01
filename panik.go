@@ -100,7 +100,7 @@ func ToError(errPtr *error) {
 }
 
 // ToErrorWithTrace recovers from any panic which originated from panik and writes
-// and error which wraps the recovered error to *errPtr and contains the stack trace
+// an error which wraps the recovered error to *errPtr and contains the stack trace
 // of the panic in its message.
 //
 // This function panics if errPtr is nil and does nothing if *errPtr is non-nil.
