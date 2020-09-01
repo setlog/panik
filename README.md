@@ -87,7 +87,9 @@ func ExitTraceTo(w io.Writer) {} // like RecoverTraceTo(), followed by os.Exit(2
 func ExitTraceFunc(f func(trace string)) {} // like RecoverTraceFunc(), followed by os.Exit(2)
 ```
 
-Use `RecoverTrace`(`Func`)`()` in libraries. Use `ExitTrace`(`Func`)`()` in `main()`.
+Use `defer RecoverTraceTo()` and `defer RecoverTraceFunc()` in libraries.
+
+Use `defer ExitTraceTo()` and `defer ExitTraceFunc()` in `main()`.
 
 ## A practical overview
 
