@@ -122,7 +122,7 @@ func ToErrorWithTrace(errPtr *error) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	*errPtr = fmt.Errorf("recovered: %w:\n%s", r, string(sb.Bytes()))
+	*errPtr = fmt.Errorf("recovered: %w:\n%s", r, sb.String())
 }
 
 // Caused returns true when r is or wraps an error which originated from panik.
@@ -147,7 +147,7 @@ func RecoverTraceTo(w io.Writer) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	w.Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes()))))
+	w.Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, sb.String())))
 }
 
 // RecoverTraceToDefaultLogger is like RecoverTraceTo, but always uses log.Default().Writer()
@@ -160,7 +160,7 @@ func RecoverTraceToDefaultLogger() {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	log.Default().Writer().Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes()))))
+	log.Default().Writer().Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, sb.String())))
 }
 
 // RecoverTraceFunc recovers from any panic and calls provided function with a stack trace,
@@ -175,7 +175,7 @@ func RecoverTraceFunc(f func(trace string)) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	f(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes())))
+	f(fmt.Sprintf("recovered: %v:\n%s\n", r, sb.String()))
 }
 
 // ExitTraceTo is like RecoverTraceTo, but also calls os.Exit(2) after writing to w.
@@ -187,7 +187,7 @@ func ExitTraceTo(w io.Writer) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	w.Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes()))))
+	w.Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, sb.String())))
 	os.Exit(2)
 }
 
@@ -200,7 +200,7 @@ func ExitTraceToDefaultLogger() {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	log.Default().Writer().Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes()))))
+	log.Default().Writer().Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, sb.String())))
 	os.Exit(2)
 }
 
@@ -213,6 +213,6 @@ func ExitTraceFunc(f func(trace string)) {
 	sb := bytes.NewBuffer(nil)
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
-	f(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes())))
+	f(fmt.Sprintf("panic: %v:\n%s\n", r, sb.String()))
 	os.Exit(2)
 }
