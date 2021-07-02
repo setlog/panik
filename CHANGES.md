@@ -26,3 +26,6 @@
 # v0.5.0 (2020-05-12)
 - Removed `RecoverTrace()` and `ExitTrace()`.
 - Added `ToErrorWithTrace()`.
+
+# v0.5.1 (2021-07-02)
+- Added `RecoverTraceToDefaultLogger()` and `ExitTraceToDefaultLogger()`.

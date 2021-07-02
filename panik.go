@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"runtime/debug"
 )
@@ -149,6 +150,19 @@ func RecoverTraceTo(w io.Writer) {
 	w.Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes()))))
 }
 
+// RecoverTraceToDefaultLogger is like RecoverTraceTo, but always uses log.Default().Writer()
+// as the output target.
+func RecoverTraceToDefaultLogger() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	log.Default().Writer().Write([]byte(fmt.Sprintf("recovered: %v:\n%s\n", r, string(sb.Bytes()))))
+}
+
 // RecoverTraceFunc recovers from any panic and calls provided function with a stack trace,
 // formatted the same way that Go itself does when a goroutine terminates due to not having
 // recovered from a panic, but with excessive descends into panic.go and panik removed. If
@@ -174,6 +188,19 @@ func ExitTraceTo(w io.Writer) {
 	tc := &traceCleaner{destination: sb}
 	tc.Write(debug.Stack())
 	w.Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes()))))
+	os.Exit(2)
+}
+
+// ExitTraceToDefaultLogger is like RecoverTraceToDefaultLogger, but also calls os.Exit(2) after writing to log.Default().Writer().
+func ExitTraceToDefaultLogger() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	sb := bytes.NewBuffer(nil)
+	tc := &traceCleaner{destination: sb}
+	tc.Write(debug.Stack())
+	log.Default().Writer().Write([]byte(fmt.Sprintf("panic: %v:\n%s\n", r, string(sb.Bytes()))))
 	os.Exit(2)
 }
 
