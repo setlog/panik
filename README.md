@@ -66,8 +66,9 @@ func writeSomething(filePath string) {
 * You can use `defer panik.Wrap`(`f`)`()` to add extra information to an ongoing panic.
   * You will want to avoid calling this on a hot code path, since even if there is no panic, you are still making a function call with all of its arguments.
   * Using these functions violates point 2 as laid out in [The problem](#the-problem), so keep an eye out for whether panik is even appropriate for what you are doing.
-* If calling `recover()` yourself, you can differ between panics and paniks using `panik.Caused(r)`.
-  * You can always avoid having to do this by using `panik.ToError()` in the called function and then recovering in the caller normally.
 
 ## Remarks
+
+* If calling `recover()` yourself, you can differ between panics and paniks using `panik.Caused(r)`.
+  * You can always avoid having to do this by using `panik.ToError()` in the called function and then recovering in the caller normally.
 * You will still need to think about when to wrap an error and when to merely format its message; the types of wrapped errors are part of your API contract. See `OnErrorfv()` if you have an error you want to report to the caller but do not want to wrap.
