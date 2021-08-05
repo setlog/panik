@@ -121,7 +121,7 @@ func TestOnErrorfvRetainsKnownCause(t *testing.T) {
 			t.Fatalf("r not marked as caused by panik")
 		}
 	}()
-	panik.OnErrorfv(catchPanic(), "onerror")
+	panik.OnErrorfv(catchPanic(t), "onerror")
 }
 
 func TestWrap(t *testing.T) {
@@ -161,10 +161,7 @@ func TestWrapf(t *testing.T) {
 }
 
 func TestToErrorCatchesKnownError(t *testing.T) {
-	err := catchPanic()
-	if err == nil {
-		t.Fatalf("err was nil")
-	}
+	err := catchPanic(t)
 	message := err.Error()
 	expectedMessage := "a: 42: oof"
 	if message != expectedMessage {
@@ -180,17 +177,42 @@ func TestToErrorDoesNotCatchUnknownError(t *testing.T) {
 		r := recover()
 		expectUnknownCause(t, r)
 	}()
-	dontCatchPanic()
+	dontCatchPanic(t)
 }
 
-func catchPanic() (retErr error) {
+func TestDeescalatedErrorIsNotCaughtTwice(t *testing.T) {
+	var retErr error
+	defer func() {
+		r := recover()
+		if retErr != nil {
+			t.Fatalf("err was caught a second time")
+		}
+		if r == nil {
+			t.Fatalf("err passed us by despite not being caught a second time")
+		}
+	}()
+	defer panik.ToError(&retErr)
+	panic(catchPanic(t))
+}
+
+func catchPanic(t *testing.T) (retErr error) {
+	defer func() {
+		if retErr == nil {
+			t.Fatalf("did not catch the error")
+		}
+	}()
 	defer panik.ToError(&retErr)
 	defer panik.Wrapf("a: %d", 42)
 	panik.Panicf("oof")
 	return retErr
 }
 
-func dontCatchPanic() (retErr error) {
+func dontCatchPanic(t *testing.T) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			t.Fatalf("caught the error")
+		}
+	}()
 	defer panik.ToError(&retErr)
 	defer panik.Wrapf("a: %d", 42)
 	panic("oof")
@@ -212,7 +234,7 @@ func TestHasKnownCause(t *testing.T) {
 	if panik.Caused(nil) {
 		t.Fatal("nil was a known cause")
 	}
-	err := catchPanic()
+	err := catchPanic(t)
 	if panik.Caused(err) {
 		t.Fatal("err is still wrapped after deescalation with ToError()")
 	}
