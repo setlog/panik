@@ -13,12 +13,12 @@ if err != nil {
 
 From the view of idiomatic Go, the above code has two problems:
 1. An error is turned into a panic, making a treatable problem look like an untreatable one.
-  * Even worse, it makes a treatable problem turn invisible, since a function signature does not inform about potential panics.
+    * Even worse, it makes a treatable problem turn invisible, since a function signature does not inform about potential panics.
 2. The error `err` will lack contextual information once it gets `recover()`ed, since no calls of the form `fmt.Errorf("-context-: %w", err)` are being made.
 
 To alleviate these problems:
 1. Call `recover()` before stepping over an API boundary.
-  * If the recovered value isn't our error, assume the worst and `panic()` again.
+    * If the recovered value isn't our error, assume the worst and `panic()` again.
 2. There are errors where information on its circumstances aren't typically needed. Only use this technique with those. An example of this might be file IO: if the call fails, it is exceedingly likely that the cause is going to have to do with issues in the environment (disk full, missing permissions) which fall outside of the program's responsibility, or even control.
 
 With those constraints in mind, we can help us out with a package such as this.
