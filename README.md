@@ -5,143 +5,69 @@ An error-handling paradigm for Go.
 ## The problem
 
 ```go
-func getSomething() (interface{}, error) {
-    a, err := f1()
-    if err != nil {
-        return nil, fmt.Errorf("f1() failed: %w", err)
-    }
-    b, err := f2(a)
-    if err != nil {
-        return nil, fmt.Errorf("f2(%v) failed: %w", a, err)
-    }
-    c, err := f3(c)
-    if err != nil {
-        return nil, fmt.Errorf("f3(%v) failed: %w", b, err)
-    }
-    return c, nil
+err := doSomething()
+if err != nil {
+    panic(err)
 }
 ```
 
-~75% of code is error handling. Also, there's a lot of it.
+From the view of idiomatic Go, the above code has two problems:
+1. An error is turned into a panic, making a treatable problem look like an untreatable one.
+  * Even worse, it makes a treatable problem turn invisible, since a function signature does not inform about potential panics.
+2. The error `err` will lack contextual information once it gets `recover()`ed, since no calls of the form `fmt.Errorf("-context-: %w", err)` are being made.
 
-The solutions presented by this module make heavy use of Go 1.13 error-wrapping, `panic()` and `recover()` under the hood.
+To alleviate these problems:
+1. Call `recover()` before stepping over an API boundary.
+  * If the recovered value isn't our error, assume the worst and `panic()` again.
+2. There are errors where information on its circumstances aren't typically needed. Only use this technique with those. An example of this might be file IO: if the call fails, it is exceedingly likely that the cause is going to have to do with issues in the environment (disk full, missing permissions) which fall outside of the program's responsibility, or even control.
+
+With those constraints in mind, we can help us out with a package such as this.
 
 ## panik's API and how to use it
 
-The key-concept of panik is to reduce the amount of error-handling code by "converting" error values to panics. As the stack unwinds, the panic may eventually be recovered to retrieve an error value again which then can be returned to the caller.
+The key-concept of panik is to reduce the amount of error-handling code by triggering a panic in places where you would otherwise return an error. As the stack unwinds, the panic may eventually be recovered (but only if it came from panik) to retrieve an error value again which then can be returned to the caller. This compares to Java's checked exceptions (i.e. an exception which hints at a problem in the environment as opposed to a problem within the program) except that there is no mechanism for declaring this in a function's signature in Go.
 
-### error to panic
+### panik by example
 
-#### when you have no error value at hand
+Most commonly, you start a pani*k* with `panik.Panic()` (if the function you are in decides that there is an error right now) or `panik.OnError(err)` (if a function-call returned an error to you). You then later end the pani*k* with `defer panik.ToError(&returnError)` (if you are at an API-boundary and don't want to give the caller some required reading) or one of the `defer panik.RecoverTrace...()` (if you are in some sort of worker) or `defer panik.ExitTrace...()` (if you are in `main()`) variants.
 
-```go
-func Panic(r interface{}) {} // wraps panic()
-func Panicf(format string, args ...interface{}) {} // wraps panic(fmt.Errorf(format, args...))
-```
-
-#### when you have an error at hand
-
-The following functions only do something `if err != nil`, and act as a replacement for such.
+Panics triggered through panik are special in that panik can tell them apart from panics triggered through `panic()`, such that a call of `defer panik.ToError(&returnError)` will lastingly `recover()` and set `*returnError` only if the panic actually came from panik. This is accomplished with a package-private type which implements `error` as well as `Unwrap() error`. Basically, we make believe that a normal panic is a runtime exception while a "panik" is a checked exception.
 
 ```go
-func OnError(err error) {} // panics with an error which wraps err
-func OnErrore(err error, panicErr error) {} // panics with an error which wraps panicErr and returns fmt.Sprintf("%v: %v", panicErr, err) for Error()
-func OnErrorfw(err error, format string, args ...interface{}) {} // panics with an error which wraps err and returns fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err) for Error()
-func OnErrorfv(err error, format string, args ...interface{}) {} // panics with an error which does not wrap err and returns fmt.Sprintf("%s: %v", fmt.Sprintf(format, args...), err) for Error()
-```
-
-### panic to panic with more information
-
-```go
-func Wrap(args ...interface{}) {} // wraps value of panic in a new error with fmt.Sprint(args...) as its message if a panic is occurring.
-func Wrapf(format string, args ...interface{}) {} // like Wrap, but with fmt.Sprintf(format, args...)
-```
-
-Use `Wrap()` and `Wrapf()` with the `defer`-statement.
-
-### panic to error
-
-```go
-func ToError(retErr *error) {} // assigns result of recover() to *retErr
-func ToErrorWithTrace(retErr *error) {} // like ToError(), but also contains full stack trace in the error's message
-```
-
-Use `ToError()` and `ToErrorWithTrace()` with the `defer`-statement.
-
-#### an important footnote
-
-To prevent unwanted recovery and deescalation of panics originating from programming errors, panik will never lastingly recover from panics created with `panic()`. Specifically, you need to use [one of panik's panicking functions](#error-to-panic) for `defer ToError(&err)` to set `*err`.
-
-### inspect recovered panic value
-
-```go
-func Caused(r interface{}) bool {} // returns true if r was recovered from a panic started with panik.
-```
-
-### print a stack trace
-
-```go
-func RecoverTraceTo(w io.Writer) {} // to w
-func RecoverTraceFunc(f func(trace string)) {} // to whatever else, e.g. an error dialog box (convenience function)
-func ExitTraceTo(w io.Writer) {} // like RecoverTraceTo(), followed by os.Exit(2)
-func ExitTraceFunc(f func(trace string)) {} // like RecoverTraceFunc(), followed by os.Exit(2)
-```
-
-Use `defer RecoverTraceTo()` and `defer RecoverTraceFunc()` in libraries.
-
-Use `defer ExitTraceTo()` and `defer ExitTraceFunc()` in `main()`.
-
-## A practical overview
-
-```go
-func getSomething() interface{} { // panic instead of returning error
-    a, err := f1()
-    panik.OnErrorfw(err, "f1() failed")
-    b, err := f2(a)
-    panik.OnErrorfw(err, "f2(%v) failed", a)
-    c, err := f3(b)
-    panik.OnErrorfw(err, "f3(%v) failed", b)
-    return c
+// doSomething(0) will return a nil error.
+// doSomething(1) will return a non-nil error with Error() == "foo".
+// doSomething(2) will panic.
+func doSomething(x int) (returnError error) {
+    defer panik.ToError(&returnError)
+    doItNow(x)
+    return nil
 }
 
-func getEverything() []interface{} {
-    defer panik.Wrap("could not get everything") // add more info to an ongoing panic
-    s1 := getSomething()
-    s2 := getSomethingElse()
-    return []interface{} { s1, s2 }
-}
-
-func GetEverythingAndThenSome() (obj interface{}, retErr error) {
-	defer panik.ToError(&retErr) // de-escalate panic into error
-	return append(getEverything(), "and then some"), nil
-}
-
-func iAmAGoroutine(everythingChannel chan interface{}) interface{} {
-    defer panik.RecoverTraceTo(os.Stderr) // if the panic could not be handled, end it all with some logging
-    everythingChannel<-getEverything()
-}
-
-func getAnotherThing(id int) interface{} {
-    if id == 42 {
-        panik.Panicf("cannot handle id %d", id) // panic from scratch when you have no non-nil error at hand
+func doItNow(x int) {
+    if x == 1 {
+        panik.Panic("foo")
+    } else if x == 2 {
+        panic("foo")
     }
-    return things[id]
-}
-
-func DoSomething() (retErr error) {
-    defer panik.ToError(&retErr)
-    panik.OnErrorfv(doSomethingInternal(), "could not do something") // eliminate type information about type "superSpecificError".
-
-}
-
-func doSomethingInternal() error {
-    // ...
-    return &superSpecificError{}
 }
 ```
+
+```go
+// writeSomething("foo") will panic with a `ToError()`-deescalatable error if err is non-nil.
+func writeSomething(filePath string) {
+    err := ioutil.WriteFile(filePath, "Hello World!", 0660)
+    panik.OnError(err)
+}
+```
+
+### additional shenanigans
+
+* You can use `defer panik.ToErrorWithTrace()` if your code is standalone and you really don't mind producing extra log output.
+* You can use `defer panik.Wrap`(`f`)`()` to add extra information to an ongoing panic.
+  * You will want to avoid calling this on a hot code path, since even if there is no panic, you are still making a function call with all of its arguments.
+  * Using these functions violates point 2 as laid out in [The problem](#the-problem), so keep an eye out for whether panik is even appropriate for what you are doing.
+* If calling `recover()` yourself, you can differ between panics and paniks using `panik.Caused(r)`.
+  * You can always avoid having to do this by using `panik.ToError()` in the called function and then recovering in the caller normally.
 
 ## Remarks
-* Use `panik.ToError()` at API boundaries. APIs which panic are not idiomatic Go.
-    * Use `panik.ToErrorWithTrace()` if your error message is not informative enough by itself, but use it sparingly: stack traces are associated with programming errors; this will look bad if you don't know what the caller is going to do with the returned error.
-* Avoid calling `recover()` yourself. If you do, you take the responsibility of differing between panics caused by your code and panics of unknown origin using `panik.Caused()`. Also, [panik's trace-printing functions](#print-a-stack-trace) will have no visibility of the original panic. You basically lose all of the simplicity panik provides. It is adviced to use `panik.ToError()` instead.
-* You will still need to think about when to wrap an error and when to merely format its message; the types of wrapped errors are part of your API contract. See `OnErrorfv()` if you do not want to wrap an error.
+* You will still need to think about when to wrap an error and when to merely format its message; the types of wrapped errors are part of your API contract. See `OnErrorfv()` if you have an error you want to report to the caller but do not want to wrap.

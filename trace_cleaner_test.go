@@ -37,8 +37,19 @@ main.main()
 	}
 }
 
+func TestTraceCleanerNilWrite(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	traceCleaner := &traceCleaner{destination: buf}
+	write(t, traceCleaner, nil)
+}
+
+func TestTraceCleanerEmptyWrite(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	traceCleaner := &traceCleaner{destination: buf}
+	write(t, traceCleaner, []byte{})
+}
+
 func runTraceCleaner(t *testing.T, trace []byte, bytesPerCall int) []byte {
-	t.Logf("testTraceCleaner(%d)", bytesPerCall)
 	originalLineCount := len(strings.Split(string(trace), "\n"))
 	buf := bytes.NewBuffer(nil)
 	traceCleaner := &traceCleaner{destination: buf}
@@ -54,7 +65,7 @@ func runTraceCleaner(t *testing.T, trace []byte, bytesPerCall int) []byte {
 			write(t, traceCleaner, trace[i:limit])
 		}
 	}
-	cleanTrace := string(buf.Bytes())
+	cleanTrace := buf.String()
 	lines := strings.Split(cleanTrace, "\n")
 	actualLineCount := len(lines)
 	expectedLineCount := 8
@@ -69,8 +80,8 @@ func runTraceCleaner(t *testing.T, trace []byte, bytesPerCall int) []byte {
 	//  	/home/developer/github/panik/ex/main.go:9 +0x2e
 
 	if actualLineCount != expectedLineCount {
-		t.Fatalf("Cleaned up trace has %d lines:\n%s\nExpected it to have %d lines. Original line count was %d.",
-			actualLineCount, string(buf.Bytes()), expectedLineCount, originalLineCount)
+		t.Fatalf("For %d bytes per call: cleaned up trace has %d lines:\n%s\nExpected it to have %d lines. Original line count was %d.",
+			bytesPerCall, actualLineCount, buf.String(), expectedLineCount, originalLineCount)
 	}
 	if lines[7] != "" {
 		t.Fatalf("Last line was not an empty line.")

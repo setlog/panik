@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const packagePath = "github.com/setlog/panik"
+
 type traceCleaner struct {
 	destination    io.Writer
 	buffer         string
@@ -43,7 +45,7 @@ func (tc *traceCleaner) Write(p []byte) (n int, err error) {
 var unwantedLineRegExps []*regexp.Regexp = []*regexp.Regexp{
 	regexp.MustCompile(`^panic\(.*$`),
 	regexp.MustCompile(`^runtime/debug.Stack\(.*$`),
-	regexp.MustCompile(`^github.com/setlog/panik\..*\(.*$`),
+	regexp.MustCompile(`^` + packagePath + `\..*\(.*$`),
 }
 
 func isUnwantedLine(line string) bool {

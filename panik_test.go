@@ -170,8 +170,8 @@ func TestToErrorCatchesKnownError(t *testing.T) {
 	if message != expectedMessage {
 		t.Fatalf("Message was \"%v\". Expected \"%v\".", message, expectedMessage)
 	}
-	if !panik.Caused(err) {
-		t.Fatalf("err is not a known cause")
+	if panik.Caused(err) {
+		t.Fatalf("err is still wrapped after deescalation with ToError()")
 	}
 }
 
@@ -196,8 +196,16 @@ func dontCatchPanic() (retErr error) {
 	panic("oof")
 }
 
-func newCustomError(cause error, args ...interface{}) error {
-	return fmt.Errorf("custom error %d: %w", args[0], cause)
+func TestToErrorRetainsErrorIdentity(t *testing.T) {
+	var retErr error = nil
+	panikErr := fmt.Errorf("foo")
+	defer func() {
+		if retErr != panikErr {
+			t.Fatal("retErr != panikErr")
+		}
+	}()
+	defer panik.ToError(&retErr)
+	panik.OnError(panikErr)
 }
 
 func TestHasKnownCause(t *testing.T) {
@@ -205,11 +213,25 @@ func TestHasKnownCause(t *testing.T) {
 		t.Fatal("nil was a known cause")
 	}
 	err := catchPanic()
-	if !panik.Caused(err) {
-		t.Fatal("not a known cause")
+	if panik.Caused(err) {
+		t.Fatal("err is still wrapped after deescalation with ToError()")
 	}
-	err2 := fmt.Errorf("wrapped: %w", err)
-	if !panik.Caused(err2) {
-		t.Fatal("wrapped is not a known cause")
-	}
+	err = fmt.Errorf("foo")
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("recovered nil")
+		}
+		if r == err {
+			t.Fatal("r == err")
+		}
+		if !panik.Caused(r) {
+			t.Fatal("directly recovered panik error not caused by panik")
+		}
+		err2 := fmt.Errorf("wrapped: %w", err)
+		if panik.Caused(err2) {
+			t.Fatal("wrapped is still a known cause")
+		}
+	}()
+	panik.OnError(err)
 }
